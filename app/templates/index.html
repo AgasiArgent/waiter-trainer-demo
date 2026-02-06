@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Тренажёр официанта</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+    <style>
+      .message-enter {
+        animation: fadeInUp 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      @keyframes fadeInUp {
+        0% {
+          opacity: 0;
+          transform: translateY(20px) scale(0.98);
+        }
+        100% {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+      .spinner {
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #8b5cf6;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+      /* Markdown table styling */
+      .evaluation-content table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1rem 0;
+        font-size: 0.8rem;
+      }
+      .evaluation-content th,
+      .evaluation-content td {
+        border: 1px solid #e5e7eb;
+        padding: 0.4rem 0.5rem;
+        text-align: left;
+      }
+      .evaluation-content th {
+        background-color: #f9fafb;
+        font-weight: 600;
+      }
+      .evaluation-content tr:nth-child(even) {
+        background-color: #f9fafb;
+      }
+      .evaluation-content h2 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-top: 1.25rem;
+        margin-bottom: 0.5rem;
+        color: #1f2937;
+      }
+      .evaluation-content h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-top: 0.75rem;
+        margin-bottom: 0.4rem;
+        color: #374151;
+      }
+      .evaluation-content ul {
+        list-style-type: disc;
+        padding-left: 1.25rem;
+        margin: 0.4rem 0;
+      }
+      .evaluation-content li {
+        margin: 0.2rem 0;
+        font-size: 0.9rem;
+      }
+      .evaluation-content p {
+        margin: 0.4rem 0;
+        font-size: 0.9rem;
+      }
+      .evaluation-content strong {
+        font-weight: 600;
+      }
+      /* Sticky columns */
+      .sticky-column {
+        position: sticky;
+        top: 1rem;
+        align-self: flex-start;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-6 max-w-7xl">
+      <!-- Header -->
+      <header class="text-center mb-6">
+        <h1
+          class="text-2xl font-bold text-gray-800 flex items-center justify-center gap-2"
+        >
+          <span class="text-3xl">🍷</span>
+          Тренажёр официанта
+        </h1>
+        <p class="text-gray-600 text-sm mt-1">
+          Симулятор диалога с гостем для отработки знания меню
+        </p>
+      </header>
+
+      <!-- Controls - compact top bar -->
+      <div class="bg-white rounded-xl shadow-md p-4 mb-6">
+        <div class="flex flex-wrap items-end gap-4">
+          <!-- Guest type selector -->
+          <div class="flex-1 min-w-[200px]">
+            <label class="block text-xs font-medium text-gray-600 mb-1">
+              Тип гостя
+            </label>
+            <select
+              id="guestType"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white text-sm"
+            >
+              <option value="friendly">🧑 Дружелюбный турист</option>
+              <option value="couple">👫 Пара на ужине</option>
+              <option value="wine">🍷 Ценитель вина</option>
+            </select>
+          </div>
+
+          <!-- Waiter level selector -->
+          <div class="flex-1 min-w-[200px]">
+            <label class="block text-xs font-medium text-gray-600 mb-1">
+              Уровень официанта
+            </label>
+            <select
+              id="waiterLevel"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white text-sm"
+            >
+              <option value="novice">📚 Новичок (Level 1)</option>
+              <option value="experienced" selected>💼 Опытный (Level 2)</option>
+              <option value="expert">⭐ Эксперт (Level 3)</option>
+            </select>
+          </div>
+
+          <!-- Start button -->
+          <button
+            id="startBtn"
+            onclick="startTraining()"
+            class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors flex items-center gap-2 text-sm"
+          >
+            <span>🎬</span>
+            Начать тренировку
+          </button>
+        </div>
+      </div>
+
+      <!-- Loading indicator -->
+      <div id="loading" class="hidden bg-white rounded-xl shadow-md p-8 mb-6">
+        <div class="flex items-center justify-center gap-4">
+          <div class="spinner"></div>
+          <span class="text-gray-600">Генерируем диалог и оценку...</span>
+        </div>
+        <p class="text-center text-sm text-gray-400 mt-4">
+          Диалог будет воспроизведён в формате реалтайм-имитации
+        </p>
+      </div>
+
+      <!-- Main content: Two columns -->
+      <div id="mainContent" class="hidden">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Left column: Dialog -->
+          <div class="bg-white rounded-xl shadow-md p-5">
+            <h2
+              class="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2 border-b pb-2"
+            >
+              <span>💬</span> Диалог
+            </h2>
+            <div
+              id="dialogContainer"
+              class="space-y-3 max-h-[calc(100vh-220px)] overflow-y-auto pr-2"
+            >
+              <!-- Messages will be inserted here -->
+            </div>
+          </div>
+
+          <!-- Right column: Evaluation -->
+          <div class="bg-white rounded-xl shadow-md p-5 sticky-column">
+            <h2
+              class="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2 border-b pb-2"
+            >
+              <span>📊</span> Оценка
+            </h2>
+            <div
+              id="evaluationContent"
+              class="evaluation-content max-h-[calc(100vh-220px)] overflow-y-auto pr-2"
+            >
+              <p class="text-gray-400 text-sm italic">
+                Оценка появится после завершения диалога...
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <footer class="text-center mt-6 text-gray-400 text-xs">
+        <p>Демо-версия тренажёра для ресторанов</p>
+      </footer>
+    </div>
+
+    <script>
+      let isRunning = false;
+
+      async function startTraining() {
+        if (isRunning) return;
+        isRunning = true;
+
+        const guestType = document.getElementById("guestType").value;
+        const waiterLevel = document.getElementById("waiterLevel").value;
+        const startBtn = document.getElementById("startBtn");
+        const loading = document.getElementById("loading");
+        const mainContent = document.getElementById("mainContent");
+        const dialogContainer = document.getElementById("dialogContainer");
+        const evaluationContent = document.getElementById("evaluationContent");
+
+        // Reset UI
+        startBtn.disabled = true;
+        startBtn.classList.add("opacity-50", "cursor-not-allowed");
+        loading.classList.remove("hidden");
+        mainContent.classList.add("hidden");
+        dialogContainer.innerHTML = "";
+        evaluationContent.innerHTML =
+          '<p class="text-gray-400 text-sm italic">Оценка появится после завершения диалога...</p>';
+
+        try {
+          const response = await fetch("/api/training", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              guest_type: guestType,
+              waiter_level: waiterLevel,
+            }),
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || "Failed to generate training");
+          }
+
+          const data = await response.json();
+          loading.classList.add("hidden");
+
+          // Show main content (both columns)
+          mainContent.classList.remove("hidden");
+
+          // Display messages one by one with delay
+          await showMessages(data.messages, dialogContainer);
+
+          // Show evaluation after all messages
+          await sleep(500);
+          evaluationContent.innerHTML = DOMPurify.sanitize(
+            marked.parse(data.evaluation),
+          );
+        } catch (error) {
+          console.error("Error:", error);
+          loading.classList.add("hidden");
+          alert("Ошибка: " + error.message);
+        } finally {
+          startBtn.disabled = false;
+          startBtn.classList.remove("opacity-50", "cursor-not-allowed");
+          isRunning = false;
+        }
+      }
+
+      async function showMessages(messages, container) {
+        for (const msg of messages) {
+          addMessage(msg, container);
+          container.scrollTop = container.scrollHeight;
+          await sleep(1600); // 1.6 second delay between messages
+        }
+      }
+
+      function addMessage(msg, container) {
+        const div = document.createElement("div");
+        div.className = "message-enter";
+
+        const isGuest = msg.role === "guest";
+        const bgColor = isGuest
+          ? "bg-blue-50 border-blue-200"
+          : "bg-green-50 border-green-200";
+        const icon = isGuest ? "🧑" : "👨‍🍳";
+        const label = isGuest ? "Гость" : "Официант";
+        const textColor = isGuest ? "text-blue-800" : "text-green-800";
+        const labelColor = isGuest ? "text-blue-600" : "text-green-600";
+
+        div.innerHTML = `
+          <div class="p-3 rounded-lg border ${bgColor}">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-lg">${icon}</span>
+              <span class="font-medium text-sm ${labelColor}">${label}</span>
+            </div>
+            <p class="text-sm ${textColor}">${escapeHtml(msg.content)}</p>
+          </div>
+        `;
+
+        container.appendChild(div);
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      function sleep(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+      }
+    </script>
+  </body>
+</html>

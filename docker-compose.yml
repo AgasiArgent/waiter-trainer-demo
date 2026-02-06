@@ -1,0 +1,16 @@
+services:
+  waiter-trainer:
+    build: .
+    container_name: waiter-trainer
+    restart: unless-stopped
+    environment:
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+    # Uncomment for local development (without reverse proxy):
+    # ports:
+    #   - "8000:8000"
+    networks:
+      - localai_default
+
+networks:
+  localai_default:
+    external: true
